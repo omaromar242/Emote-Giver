@@ -1,23 +1,29 @@
 -- LocalScript: EmoteGiverGUI.lua
--- Place this under StarterPlayerScripts or StarterGui
+-- Place this under StarterGui for persistent UI across respawns
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
+
+-- Prevent duplicate GUI creation on respawn
+if player:FindFirstChild("PlayerGui") and player.PlayerGui:FindFirstChild("EmoteGiverGUI") then
+    return
+end
+
 local emotesFolder = ReplicatedStorage:WaitForChild("Emotes")
 local playerData = ReplicatedStorage:WaitForChild("PlayerData"):WaitForChild(player.Name)
 local equipped = playerData:WaitForChild("Equipped")
 
--- Create ScreenGui and UIScale for mobile
+-- Create ScreenGui and UIScale for mobile support
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "EmoteGiverGUI"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
 local uiScale = Instance.new("UIScale", screenGui)
-uiScale.Scale = UserInputService.TouchEnabled and 0.8 or 1
+uiScale.Scale = UserInputService.TouchEnabled and 0.75 or 1
 
 -- Styling helper
 local function style(frame)
@@ -30,19 +36,18 @@ local function style(frame)
     stroke.Parent = frame
 end
 
--- Main GUI Frame (hidden initially)
+-- Main GUI Frame
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
 mainFrame.AnchorPoint = Vector2.new(0.5,0.5)
 mainFrame.Position = UDim2.new(0.5,0,0.5,0)
 mainFrame.Size = UDim2.new(0.8,0,0.8,0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(20,20,20)
-mainFrame.BorderSizePixel = 0
 mainFrame.Visible = false
 mainFrame.Parent = screenGui
 style(mainFrame)
 
--- Draggable for non-touch
+-- Make draggable on desktop only
 if not UserInputService.TouchEnabled then
     local dragging, dragInput, dragStart, startPos
     mainFrame.InputBegan:Connect(function(input)
@@ -67,10 +72,9 @@ if not UserInputService.TouchEnabled then
     end)
 end
 
--- Header Label
+-- Header
 local header = Instance.new("TextLabel")
 header.Size = UDim2.new(1,0,0,50)
-header.Position = UDim2.new(0,0,0,0)
 header.BackgroundTransparency = 1
 header.Text = "Emote Giver"
 header.Font = Enum.Font.GothamBold
@@ -78,12 +82,14 @@ header.TextColor3 = Color3.new(1,1,1)
 header.TextScaled = true
 header.Parent = mainFrame
 
--- Slot Selector (6 slots)
+-- Slot Selector (6)
 local slotFrame = Instance.new("Frame")
 slotFrame.Size = UDim2.new(1,-20,0,50)
 slotFrame.Position = UDim2.new(0,10,0,60)
 slotFrame.BackgroundTransparency = 1
 slotFrame.Parent = mainFrame
+style(slotFrame)
+
 local slotButtons = {}
 local selectedSlot = 1
 for i = 1, 6 do
@@ -91,7 +97,6 @@ for i = 1, 6 do
     b.Name = "Slot"..i
     b.Size = UDim2.new(0, (mainFrame.AbsoluteSize.X-20)/6, 1, 0)
     b.Position = UDim2.new((i-1)/6, 10 + ((i-1)*2), 0, 0)
-    b.AnchorPoint = Vector2.new(0,0)
     b.Text = "Slot"..i
     b.Font = Enum.Font.Gotham
     b.TextColor3 = Color3.new(1,1,1)
@@ -108,21 +113,20 @@ for i = 1, 6 do
     end)
 end
 
--- Search Box with placeholder
+-- Search Box
 local searchBox = Instance.new("TextBox")
 searchBox.Size = UDim2.new(1,-20,0,40)
 searchBox.Position = UDim2.new(0,10,0,130)
 searchBox.PlaceholderText = "Search Emote"
-searchBox.Text = ""
+searchBox.ClearTextOnFocus = false
 searchBox.Font = Enum.Font.Gotham
 searchBox.TextColor3 = Color3.new(1,1,1)
 searchBox.BackgroundColor3 = Color3.fromRGB(40,40,40)
-searchBox.ClearTextOnFocus = false
 searchBox.Parent = mainFrame
 style(searchBox)
 searchBox.TextScaled = true
 
--- Emote List (ScrollingFrame)
+-- Emote List
 local scroll = Instance.new("ScrollingFrame")
 scroll.Size = UDim2.new(1,-20,1,-240)
 scroll.Position = UDim2.new(0,10,0,180)
@@ -138,15 +142,14 @@ uiList.Parent = scroll
 uiList.SortOrder = Enum.SortOrder.Name
 uiList.Padding = UDim.new(0,8)
 
--- Populate and store buttons
 local emoteButtons = {}
 for _, em in ipairs(emotesFolder:GetChildren()) do
     if em:IsA("Animation") then
         local btn = Instance.new("TextButton")
         btn.Name = em.Name
         btn.Size = UDim2.new(1,0,0,50)
-        btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
         btn.Text = em.Name
+        btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
         btn.Font = Enum.Font.Gotham
         btn.TextColor3 = Color3.new(1,1,1)
         btn.Parent = scroll
@@ -162,7 +165,7 @@ for _, em in ipairs(emotesFolder:GetChildren()) do
 end
 scroll.CanvasSize = UDim2.new(0,0,0,uiList.AbsoluteContentSize.Y + 20)
 
--- Filter function
+-- Filter
 local function filterEmotes(query)
     local y = 0
     local lower = string.lower
@@ -188,6 +191,7 @@ giveBtn.BackgroundColor3 = Color3.fromRGB(0,150,0)
 giveBtn.Parent = mainFrame
 style(giveBtn)
 giveBtn.TextScaled = true
+
 giveBtn.MouseButton1Click:Connect(function()
     if not selectedEmote then warn("Select an emote first") return end
     local key = (selectedSlot == 1) and "Emote" or ("Emote"..selectedSlot)
@@ -195,7 +199,7 @@ giveBtn.MouseButton1Click:Connect(function()
     if val then val.Value = selectedEmote end
 end)
 
--- Toggle Button (hidden until loader completes)
+-- Toggle Button
 local toggleBtn = Instance.new("TextButton")
 toggleBtn.AnchorPoint = Vector2.new(0.5,0)
 toggleBtn.Position = UDim2.new(0.5,0,0.05,0)
@@ -208,13 +212,12 @@ toggleBtn.Parent = screenGui
 style(toggleBtn)
 toggleBtn.TextScaled = true
 toggleBtn.Visible = false
-
 toggleBtn.MouseButton1Click:Connect(function()
     mainFrame.Visible = not mainFrame.Visible
     toggleBtn.Text = mainFrame.Visible and "Close Emote Giver" or "Open Emote Giver"
 end)
 
--- Loader Elements (typing effect)
+-- Loader
 local loaderFrame = Instance.new("Frame")
 loaderFrame.Size = UDim2.new(1,0,1,0)
 loaderFrame.Parent = screenGui
@@ -224,7 +227,6 @@ local loadText = Instance.new("TextLabel")
 loadText.Size = UDim2.new(0.6,0,0,40)
 loadText.Position = UDim2.new(0.5,-(screenGui.AbsoluteSize.X*0.3),0.5,-20)
 loadText.BackgroundTransparency = 1
-loadText.Text = ""
 loadText.Font = Enum.Font.Code
 loadText.TextColor3 = Color3.new(1,1,1)
 loadText.TextScaled = true
